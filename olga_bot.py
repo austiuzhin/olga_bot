@@ -3,15 +3,21 @@ import csv
 import codecs
 import requests
 import xlsxwriter
+from currency_converter import CurrencyConverter
+from datetime import datetime
 
 
-
-free_source = ["(direct)","google","yahoo","yandex","bing"]
+free_sources = ["(direct)","google","yahoo","yandex","bing","facebook.com", "l.facebook.com", "l.messenger.com"]
 report = {}
+
 answers = {
-	"привет": "Привет! Я мало говорю, но я готова помочь тебе с аналитикой",
-	"Привет": "Привет! Я мало говорю, но я готова помочь тебе с аналитикой",
+	"привет": "Привет! Я мало говорю, но я готова помочь тебе с аналитикой. Отправь //start, чтобы начать или //help, если тебе требуется помощь",
+	"Привет": "Привет! Я мало говорю, но я готова помочь тебе с аналитикой. Отправь //start, чтобы начать или //help, если тебе требуется помощь",
 }
+
+c = CurrencyConverter(fallback_on_missing_rate=True) #convert to RUB
+c_rate = c.convert(1, 'USD', 'RUB', date=datetime(2016, 12, 31))
+
 
 def get_answer(question, answers):
 	return answers.get(question)
@@ -20,12 +26,19 @@ def get_answer(question, answers):
 def start(bot, update):
 	print("Вызван /start")
 	bot.sendMessage(update.message.chat_id, text = "Привет, я Ольга. Я помогу тебе оценить эффективность твоей рекламной кампании.\
-		Пожалуйста, отправь мне отчет из Google Analytics для обработки.")
+		Пожалуйста, отправь мне отчет из Google Analytics для обработки. Набери '\\help', если тебе нужна инструкция по выгрузке отчета")
 
 
 def help(bot, update):
 	print("Вызван /help")
 	update.message.reply_text("Пожалуйста, отправь мне отчет из Google Analytics для обработки")
+	update.message.reply_text("Чтобы выгрузить отчет, перейди в Google Analytics и выбери отчет «Основные последовательности конверсий», \
+		вкладка «Путь источник / канал». Ниже ты увидишь пример отчета. Пожалуйста, корректно укажи период, за который выгружается отчет")
+	bot.sendDocument(update.message.chat_id, document=open('help1.png', 'rb'))
+	update.message.reply_text("Экспортируй отчет в формат CSV и отправь мне в телеграме. Ниже ты увидишь пример, как экспортировать отчет")
+	bot.sendDocument(update.message.chat_id, document=open('help2.png', 'rb'))
+	update.message.reply_text("Ниже ты увидишь пример, как файл в телеграме")
+	bot.sendDocument(update.message.chat_id, document=open('help3.png', 'rb'))
 
 
 def talk_to_me(bot, update):
@@ -34,7 +47,7 @@ def talk_to_me(bot, update):
 	try:
 		answers[update.message.text] == True
 	except KeyError:
-		bot.sendMessage(update.message.chat_id, text = "Не понимаю:( Я очень чувствителен к регистру строки. Попробуй набрать строчными буквами")
+		bot.sendMessage(update.message.chat_id, text = "Отправь //start, чтобы начать или //help, если тебе требуется помощь")
 	else:
 		bot.sendMessage(update.message.chat_id, text = answer)
 
@@ -46,16 +59,14 @@ def csvhandler(bot, update):
 		print("получен документ " + file_name)
 		newFile = bot.getFile(file_name)
 		newFile = newFile.download('ga_report.csv')
-			
-		free_sources = ["(direct)","google","yahoo","yandex","bing","facebook.com", "google.com"]
-		report = {}
-
 
 
 		with open("ga_report.csv", "r", encoding="utf-8") as f:
 			fields = ["source", "conversion", "value"]
 			reader = csv.DictReader(f, fields, delimiter=",")
 			
+			for row in range(6):#this is to skip first 7 lines with non-quantitative data
+				next(reader)
 			for row in reader:
 				sources = row["source"].split(" > ")
 				paid_sources = [item for item in sources if item not in free_sources]
@@ -89,7 +100,7 @@ def csvhandler(bot, update):
 
 		bold = workbook.add_format({'bold': True})
 		worksheet.write(row, col, "Источник", bold)
-		worksheet.write(row, col + 1, "Ценность конверсии итого", bold)
+		worksheet.write(row, col + 1, "Ценность конверсии, руб", bold)
 		worksheet.write(row, col + 2, "Доля в общей ценности конверсии", bold)
 		worksheet.set_column('A:A', 30)
 		worksheet.set_column('B:B', 30)
@@ -99,7 +110,7 @@ def csvhandler(bot, update):
 
 		for key in report.keys():
 			worksheet.write(row, col, key)
-			worksheet.write(row, col + 1, report[key])
+			worksheet.write(row, col + 1, report[key]*c_rate)
 			worksheet.write(row, col + 2, "%.0f%%" % (100 * (report[key]/total_value)))
 			row += 1
 
@@ -107,46 +118,11 @@ def csvhandler(bot, update):
 		workbook.close()
 		# bot.sendChatAction(chat_id=chat_id, action=telegram.ChatAction.TYPING)
 		bot.sendDocument(update.message.chat_id, document=open('report.xlsx', 'rb'))
+		update.message.reply_text("Отчет проанализирован. Нажми на файл, чтобы сохранить его")
+
 
 	else:
 		bot.sendMessage(update.message.chat_id, text = "Пожалуйста, отправь мне файл в формате csv")
-
-
-# def csv_report(name):
-# 	with open('name', "r", encoding="utf-8") as f:
-# 		fields = ["source", "conversion", "value"]
-# 		reader = csv.DictReader(f, fields, delimiter=",")
-# 		for row in reader:
-# 			sources = row["source"].split(" > ")
-# 			counter = 0
-# 			for item in sources:
-# 				if (item in free_source) is False:
-# 					counter += 1
-# 			clear_value = str(row["value"])
-# 			print(clear_value)
-# 			clear_value = float(clear_value.replace(u'\xa0', u'').split(" ")[0].replace(",",".").replace("$",""))
-# 			conversion_no = int(row["conversion"])
-# 			try:
-# 				average_value = (clear_value / counter) / conversion_no
-# 			except ZeroDivisionError:
-# 				average_value = 0			
-# 			for item in sources:
-# 				if (item in free_source) is False:
-# 					try:
-# 						old_value = report[item]
-# 						new_value = old_value + average_value
-# 						report.update({item: new_value})
-# 					except KeyError:
-# 						report.update({item: average_value})
-# 		return(report)
-# 	for item in report.keys():
-# 		total_value = total_value + report[item]
-# 	for key in report.keys():
-# 		worksheet.write(row, col, key)
-# 		worksheet.write(row, col + 1, report[key])
-# 		worksheet.write(row, col + 2, (report[key]/total_value))
-# 		row += 1
-# 	workbook.close()
 
 
 def run_bot():
