@@ -11,8 +11,8 @@ free_sources = ["(direct)","google","yahoo","yandex","bing","facebook.com", "l.f
 report = {}
 
 answers = {
-	"привет": "Привет! Я мало говорю, но я готова помочь тебе с аналитикой. Отправь //start, чтобы начать или //help, если тебе требуется помощь",
-	"Привет": "Привет! Я мало говорю, но я готова помочь тебе с аналитикой. Отправь //start, чтобы начать или //help, если тебе требуется помощь",
+	"привет": "Привет! Отправь /start, чтобы начать или /help, если тебе требуется помощь",
+	"Привет": "Привет! Отправь /start, чтобы начать или /help, если тебе требуется помощь"
 }
 
 c = CurrencyConverter(fallback_on_missing_rate=True) #convert to RUB
@@ -26,18 +26,18 @@ def get_answer(question, answers):
 def start(bot, update):
 	print("Вызван /start")
 	bot.sendMessage(update.message.chat_id, text = "Привет, я Ольга. Я помогу тебе оценить эффективность твоей рекламной кампании.\
-		Пожалуйста, отправь мне отчет из Google Analytics для обработки. Набери '\\help', если тебе нужна инструкция по выгрузке отчета")
+		Пожалуйста, отправь мне отчет из Google Analytics для обработки. Набери /help, если тебе нужна инструкция по выгрузке отчета")
 
 
 def help(bot, update):
 	print("Вызван /help")
 	update.message.reply_text("Пожалуйста, отправь мне отчет из Google Analytics для обработки")
 	update.message.reply_text("Чтобы выгрузить отчет, перейди в Google Analytics и выбери отчет «Основные последовательности конверсий», \
-		вкладка «Путь источник / канал». Ниже ты увидишь пример отчета. Пожалуйста, корректно укажи период, за который выгружается отчет")
+		вкладка «Путь источник / канал». Ниже ты увидишь пример отчета. Важно правильно указать период, за который выгружается отчет")
 	bot.sendDocument(update.message.chat_id, document=open('help1.png', 'rb'))
-	update.message.reply_text("Экспортируй отчет в формат CSV и отправь мне в телеграме. Ниже ты увидишь пример, как экспортировать отчет")
+	update.message.reply_text("Экспортируй отчет в формате CSV и отправь мне в телеграме. Ниже ты увидишь пример, как экспортировать отчет")
 	bot.sendDocument(update.message.chat_id, document=open('help2.png', 'rb'))
-	update.message.reply_text("Ниже ты увидишь пример, как файл в телеграме")
+	update.message.reply_text("Ниже ты увидишь пример, как отправить файл в телеграме")
 	bot.sendDocument(update.message.chat_id, document=open('help3.png', 'rb'))
 
 
@@ -47,7 +47,7 @@ def talk_to_me(bot, update):
 	try:
 		answers[update.message.text] == True
 	except KeyError:
-		bot.sendMessage(update.message.chat_id, text = "Отправь //start, чтобы начать или //help, если тебе требуется помощь")
+		bot.sendMessage(update.message.chat_id, text = "Отправь /start, чтобы начать, или /help, если тебе требуется помощь")
 	else:
 		bot.sendMessage(update.message.chat_id, text = answer)
 
@@ -116,7 +116,6 @@ def csvhandler(bot, update):
 
 		# workbook.save('report.xlsx')
 		workbook.close()
-		# bot.sendChatAction(chat_id=chat_id, action=telegram.ChatAction.TYPING)
 		bot.sendDocument(update.message.chat_id, document=open('report.xlsx', 'rb'))
 		update.message.reply_text("Отчет проанализирован. Нажми на файл, чтобы сохранить его")
 
